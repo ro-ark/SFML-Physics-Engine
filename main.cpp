@@ -2,6 +2,7 @@
 #include <optional> // Required for SFML 3.0 events
 #include <memory>
 #include <vector>
+#include <cmath>
 
 #include "imgui.h"
 #include "imgui-SFML.h"
@@ -13,6 +14,8 @@
 #define GRID_X (int)(FRAME_X/10)
 #define GRID_Y (int)(FRAME_Y/10)
 #define COEFF_REST 0.7f
+
+#define CELL_SIZE (float)(FRAME_X / 16.f) 
 
 class Particle{
 private:
@@ -60,6 +63,36 @@ public:
   
 };
 
+
+void drawInfiniteGrid(sf::RenderWindow& window, const sf::View& view, float cellSize) {
+  sf::Vector2f center = view.getCenter();
+  sf::Vector2f size = view.getSize();
+
+  float left = center.x - size.x / 2.0f;
+  float right = center.x + size.x / 2.0f;
+  float top = center.y - size.y / 2.0f;
+  float bottom = center.y + size.y / 2.0f;
+
+
+  float startX = std::floor(left / cellSize) * cellSize;
+  float startY = std::floor(top / cellSize) * cellSize;
+
+  sf::VertexArray lines(sf::PrimitiveType::Lines);
+  sf::Color gridColor(255, 255, 255, 40);
+
+  for (float x = startX; x <= right; x += cellSize) {
+    lines.append(sf::Vertex{{x, top}, gridColor});
+    lines.append(sf::Vertex{{x, bottom}, gridColor});
+  }
+  for (float y = startY; y <= bottom; y += cellSize) {
+    lines.append(sf::Vertex{{left, y}, gridColor});
+    lines.append(sf::Vertex{{right, y}, gridColor});
+  }
+
+  window.draw(lines);
+  
+}
+
 class CircleParticle : public Particle{
 public:
   CircleParticle(float mass, sf::Vector2f p, float radius, sf::Color color, sf::Vector2f vel = {0.f, 0.f}): Particle(mass, p, std::make_unique<sf::CircleShape>(radius), color, {radius, radius}, vel){}
@@ -67,8 +100,12 @@ public:
 
 int main() {
   // SFML 3.0: VideoMode now takes a Vector2u (braces) and State
-  sf::RenderWindow window(sf::VideoMode({FRAME_X, FRAME_Y}), "SFML 3.0 Test", sf::Style::Close | sf::Style::Resize);
-  ImGui::SFML::Init(window);
+  sf::ContextSettings settings;
+  settings.antiAliasingLevel = 0;
+  sf::RenderWindow window(sf::VideoMode({FRAME_X, FRAME_Y}), "SFML 3.0 Test",
+                          sf::Style::Close | sf::Style::Resize);
+  sf::View worldView = window.getDefaultView();
+  auto imgui = ImGui::SFML::Init(window);
   
   bool isPaused = true;
   sf::Clock clock;
@@ -95,10 +132,11 @@ int main() {
       if(const auto* mouse = event->getIf<sf::Event::MouseButtonPressed>()){
 	if(mouse->button == sf::Mouse::Button::Left && !io.WantCaptureMouse){
 	  sf::Vector2f mousePos = sf::Vector2f(mouse->position);
-	  particles.push_back(std::make_unique<CircleParticle> (10.0f, mousePos, 15.0f, sf::Color::Cyan, sf::Vector2f{80.f, 10.0f}));
+	  particles.push_back(std::make_unique<CircleParticle> (10.0f, mousePos, 15.0f, sf::Color::White, sf::Vector2f{80.f, 10.0f}));
 	}
       }
     }
+
  
     ImGui::SFML::Update(window, elapsed);
     ImGui::Begin("Control Centre");
@@ -116,6 +154,8 @@ int main() {
     
     
     window.clear(sf::Color::Black);
+    window.setView(worldView);
+    drawInfiniteGrid(window, worldView, CELL_SIZE);
 
     if(!isPaused){
       for(auto& p: particles){
