@@ -15,56 +15,46 @@ jobs:
         include:
           - os: ubuntu-20.04
             artifact_name: VectorP-Linux
-            asset_name: VectorP-Linux 
           - os: windows-latest
             artifact_name: VectorP-Windows
-            asset_name: VectorP-Windows.exe
           - os: macos-latest
             artifact_name: VectorP-macOS
-            asset_name: VectorP-macOS
 
     steps:
     - uses: actions/checkout@v4
 
-    # Configure CMake
     - name: Configure CMake
       shell: bash
       run: |
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
         $(if [ "${{ matrix.os }}" == "macos-latest" ]; then echo "-DCMAKE_OSX_ARCHITECTURES='arm64;x86_64'"; fi)
 
-    # Build the binary
     - name: Build
       shell: bash
       run: cmake --build build --config Release
 
-    # (Optional) Run Tests
-    # - name: Test
-    #   run: cd build && ctest
-
-    # Zip/Prepare the binary for upload
     - name: Package
       shell: bash
       run: |
-        mkdir output
+        # Create a clean workspace for the binary
+        mkdir -p output
+        
         if [ "${{ runner.os }}" == "Windows" ]; then
-          cp build/Release/*.exe output/
+          # Windows CMake usually puts binaries in a 'Release' subfolder
+          cp build/Release/*.exe output/ || cp build/*.exe output/
+          7z a "${{ matrix.artifact_name }}.zip" ./output/*
         else
-          cp build/* output/ 2>/dev/null || cp build/*.app output/ 2>/dev/null || cp build/sfml-app output/
-        fi
-        cd output
-        if [ "${{ runner.os }}" == "Windows" ]; then
-          7z a ../${{ matrix.artifact_name }}.zip *
-        else
-          tar -czvf ../${{ matrix.artifact_name }}.tar.gz *
+          # Linux/macOS usually put them in the root of the build folder
+          # We search for the binary specifically
+          find build -maxdepth 2 -type f -executable -exec cp {} output/ \;
+          tar -czvf "${{ matrix.artifact_name }}.tar.gz" -C output .
         fi
 
-    # Upload to the Release Page
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          ${{ matrix.artifact_name }}.zip
-          ${{ matrix.artifact_name }}.tar.gz
-
+          *.zip
+          *.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
