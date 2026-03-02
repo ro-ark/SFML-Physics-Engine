@@ -101,9 +101,9 @@ public:
 int main() {
   // SFML 3.0: VideoMode now takes a Vector2u (braces) and State
   sf::ContextSettings settings;
-  settings.antiAliasingLevel = 0;
+  settings.antiAliasingLevel = 8;
   sf::RenderWindow window(sf::VideoMode({FRAME_X, FRAME_Y}), "SFML 3.0 Test",
-                          sf::Style::Close | sf::Style::Resize);
+                          sf::Style::Close | sf::Style::Resize, sf::State::Windowed, settings);
   sf::View worldView = window.getDefaultView();
   auto imgui = ImGui::SFML::Init(window);
   
